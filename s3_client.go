@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli"
 )
 
+// S3Client makes AWS SDK S3 Client from cli and environment variables
 type S3Client struct {
 	accessKeyID     string
 	secretAccessKey string
@@ -23,49 +24,52 @@ type S3Client struct {
 }
 
 const (
-	AWS_ACCESS_KEY_ID     = "aws-access-key-id"
-	AWS_SECRET_ACCESS_KEY = "aws-secret-access-key"
-	AWS_ENDPOINT          = "aws-endpoint"
-	AWS_REGION            = "aws-region"
+	awsAccessKeyID     = "aws-access-key-id"
+	awsSecretAccessKey = "aws-secret-access-key"
+	awsEndpoint        = "aws-endpoint"
+	awsRegion          = "aws-region"
 )
 
+// RegisterS3ClientFlags registers cli flags for S3 client
 func RegisterS3ClientFlags(c *cli.App) {
 	c.Flags = append(c.Flags, cli.StringFlag{
-		Name:   AWS_ACCESS_KEY_ID,
+		Name:   awsAccessKeyID,
 		Usage:  "AWS Access Key ID",
 		Value:  "",
-		EnvVar: "AWS_ACCESS_KEY_ID",
+		EnvVar: "awsAccessKeyID",
 	})
 	c.Flags = append(c.Flags, cli.StringFlag{
-		Name:   AWS_SECRET_ACCESS_KEY,
+		Name:   awsSecretAccessKey,
 		Usage:  "AWS Secret Access Key",
 		Value:  "",
-		EnvVar: "AWS_SECRET_ACCESS_KEY",
+		EnvVar: "awsSecretAccessKey",
 	})
 	c.Flags = append(c.Flags, cli.StringFlag{
-		Name:   AWS_ENDPOINT,
+		Name:   awsEndpoint,
 		Usage:  "AWS Endpoint",
 		Value:  "",
-		EnvVar: "AWS_ENDPOINT",
+		EnvVar: "awsEndpoint",
 	})
 	c.Flags = append(c.Flags, cli.StringFlag{
-		Name:   AWS_REGION,
+		Name:   awsRegion,
 		Usage:  "AWS Region",
 		Value:  "",
-		EnvVar: "AWS_REGION",
+		EnvVar: "awsRegion",
 	})
 }
 
+// NewS3Client initializes S3Client
 func NewS3Client(c *cli.Context) *S3Client {
 	return &S3Client{
-		accessKeyID:     c.String(AWS_ACCESS_KEY_ID),
-		secretAccessKey: c.String(AWS_SECRET_ACCESS_KEY),
-		endpoint:        c.String(AWS_ENDPOINT),
-		region:          c.String(AWS_REGION),
+		accessKeyID:     c.String(awsAccessKeyID),
+		secretAccessKey: c.String(awsSecretAccessKey),
+		endpoint:        c.String(awsEndpoint),
+		region:          c.String(awsRegion),
 		inited:          false,
 	}
 }
 
+// Get get AWS SDK S3 Client
 func (s *S3Client) Get() *s3.S3 {
 	s.mux.Lock()
 	defer s.mux.Unlock()
