@@ -36,25 +36,25 @@ func RegisterS3ClientFlags(c *cli.App) {
 		Name:   awsAccessKeyID,
 		Usage:  "AWS Access Key ID",
 		Value:  "",
-		EnvVar: "awsAccessKeyID",
+		EnvVar: "AWS_ACCESS_KEY_ID",
 	})
 	c.Flags = append(c.Flags, cli.StringFlag{
 		Name:   awsSecretAccessKey,
 		Usage:  "AWS Secret Access Key",
 		Value:  "",
-		EnvVar: "awsSecretAccessKey",
+		EnvVar: "AWS_SECRET_ACCESS_KEY",
 	})
 	c.Flags = append(c.Flags, cli.StringFlag{
 		Name:   awsEndpoint,
 		Usage:  "AWS Endpoint",
 		Value:  "",
-		EnvVar: "awsEndpoint",
+		EnvVar: "AWS_ENDPOINT",
 	})
 	c.Flags = append(c.Flags, cli.StringFlag{
 		Name:   awsRegion,
 		Usage:  "AWS Region",
 		Value:  "",
-		EnvVar: "awsRegion",
+		EnvVar: "AWS_REGION",
 	})
 }
 
