@@ -1,6 +1,7 @@
 package services
 
 import (
+	"net/http"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -20,6 +21,7 @@ type S3Client struct {
 	s3              *s3.S3
 	mux             sync.Mutex
 	err             error
+	cl              *http.Client
 	inited          bool
 }
 
@@ -59,13 +61,13 @@ func RegisterS3ClientFlags(c *cli.App) {
 }
 
 // NewS3Client initializes S3Client
-func NewS3Client(c *cli.Context) *S3Client {
+func NewS3Client(c *cli.Context, cl *http.Client) *S3Client {
 	return &S3Client{
 		accessKeyID:     c.String(awsAccessKeyID),
 		secretAccessKey: c.String(awsSecretAccessKey),
 		endpoint:        c.String(awsEndpoint),
 		region:          c.String(awsRegion),
-		inited:          false,
+		cl:              cl,
 	}
 }
 
@@ -89,6 +91,7 @@ func (s *S3Client) get() *s3.S3 {
 		Region:      aws.String(s.region),
 		// DisableSSL:       aws.Bool(true),
 		S3ForcePathStyle: aws.Bool(true),
+		HTTPClient:       s.cl,
 	}
 	ss := session.New(c)
 	s.s3 = s3.New(ss)
