@@ -18,6 +18,7 @@ type S3Client struct {
 	secretAccessKey string
 	endpoint        string
 	region          string
+	noSSL           bool
 	s3              *s3.S3
 	mux             sync.Mutex
 	err             error
@@ -30,6 +31,7 @@ const (
 	awsSecretAccessKey = "aws-secret-access-key"
 	awsEndpoint        = "aws-endpoint"
 	awsRegion          = "aws-region"
+	awsNoSSL           = "aws-no-ssl"
 )
 
 // RegisterS3ClientFlags registers cli flags for S3 client
@@ -58,6 +60,10 @@ func RegisterS3ClientFlags(c *cli.App) {
 		Value:  "",
 		EnvVar: "AWS_REGION",
 	})
+	c.Flags = append(c.Flags, cli.BoolFlag{
+		Name:   awsNoSSL,
+		EnvVar: "AWS_NO_SSL",
+	})
 }
 
 // NewS3Client initializes S3Client
@@ -67,6 +73,7 @@ func NewS3Client(c *cli.Context, cl *http.Client) *S3Client {
 		secretAccessKey: c.String(awsSecretAccessKey),
 		endpoint:        c.String(awsEndpoint),
 		region:          c.String(awsRegion),
+		noSSL:           c.Bool(awsNoSSL),
 		cl:              cl,
 	}
 }
@@ -86,10 +93,10 @@ func (s *S3Client) Get() *s3.S3 {
 func (s *S3Client) get() *s3.S3 {
 	log.Info("Initializing S3")
 	c := &aws.Config{
-		Credentials: credentials.NewStaticCredentials(s.accessKeyID, s.secretAccessKey, ""),
-		Endpoint:    aws.String(s.endpoint),
-		Region:      aws.String(s.region),
-		// DisableSSL:       aws.Bool(true),
+		Credentials:      credentials.NewStaticCredentials(s.accessKeyID, s.secretAccessKey, ""),
+		Endpoint:         aws.String(s.endpoint),
+		Region:           aws.String(s.region),
+		DisableSSL:       aws.Bool(s.noSSL),
 		S3ForcePathStyle: aws.Bool(true),
 		HTTPClient:       s.cl,
 	}
