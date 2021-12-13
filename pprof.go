@@ -51,7 +51,6 @@ func (s *Pprof) Serve() error {
 	mux.HandleFunc("/", pprof.Index)
 	mux.HandleFunc("/cmdline", pprof.Cmdline)
 	mux.HandleFunc("/profile", pprof.Profile)
-	mux.HandleFunc("/heap", pprof.Profile)
 	mux.HandleFunc("/symbol", pprof.Symbol)
 	mux.HandleFunc("/trace", pprof.Trace)
 
