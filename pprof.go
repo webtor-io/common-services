@@ -51,8 +51,14 @@ func (s *Pprof) Serve() error {
 	mux.HandleFunc("/", pprof.Index)
 	mux.HandleFunc("/cmdline", pprof.Cmdline)
 	mux.HandleFunc("/profile", pprof.Profile)
+	mux.HandleFunc("/heap", pprof.Profile)
 	mux.HandleFunc("/symbol", pprof.Symbol)
 	mux.HandleFunc("/trace", pprof.Trace)
+
+	mux.Handle("/goroutine", pprof.Handler("goroutine"))
+	mux.Handle("/heap", pprof.Handler("heap"))
+	mux.Handle("/threadcreate", pprof.Handler("threadcreate"))
+	mux.Handle("/block", pprof.Handler("block"))
 
 	log.Infof("serving pprof at %v", addr)
 	return http.Serve(ln, mux)

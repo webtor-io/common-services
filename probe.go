@@ -58,7 +58,7 @@ func (s *Probe) Serve() error {
 	mux.HandleFunc("/readiness", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 	})
-	log.Infof("serving Probe at %v", addr)
+	log.Infof("serving probe at %v", addr)
 	return http.Serve(ln, mux)
 }
 
