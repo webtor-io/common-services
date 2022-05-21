@@ -46,6 +46,6 @@ func (s *Serve) Serve() error {
 			return errors.Wrap(err, "got serve error")
 		}
 	}
-	log.Info("shuting down... at last!")
+	log.Info("shutting down... at last!")
 	return nil
 }
