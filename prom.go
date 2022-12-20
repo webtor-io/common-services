@@ -39,7 +39,7 @@ func RegisterPromFlags(f []cli.Flag) []cli.Flag {
 		cli.IntFlag{
 			Name:  promHostPort,
 			Usage: "prometheus metrics listening port",
-			Value: 8082,
+			Value: 8083,
 		})
 }
 
