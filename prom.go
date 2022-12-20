@@ -47,12 +47,12 @@ func (s *Prom) Serve() error {
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		return errors.Wrap(err, "Failed to web listen to tcp connection")
+		return errors.Wrap(err, "failed to listen to tcp connection")
 	}
 	s.ln = ln
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
-	logrus.Infof("Serving Prom Metrics at %v", addr)
+	logrus.Infof("serving Prometheus metrics at %v", addr)
 	return http.Serve(ln, mux)
 }
 
