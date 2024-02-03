@@ -30,6 +30,9 @@ func (s *Serve) Serve() error {
 	serveError := make(chan error, 1)
 
 	for _, ss := range s.servables {
+		if ss == nil {
+			continue
+		}
 		go func(sss Servable) {
 			err := sss.Serve()
 			serveError <- err
