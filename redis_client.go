@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-redis/redis"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/urfave/cli"
 
@@ -35,9 +35,13 @@ const (
 
 // NewRedisClient initializes RedisClient
 func NewRedisClient(c *cli.Context) *RedisClient {
-	return &RedisClient{host: c.String(redisHostFlag), port: c.Int(redisPortFlag), pass: c.String(redisPassFlag),
-		sentinelPort: c.Int(redisSentinelPortFlag), sentinelMasterName: c.String(redisSentinelMasterName),
-		inited: false}
+	return &RedisClient{
+		host:               c.String(redisHostFlag),
+		port:               c.Int(redisPortFlag),
+		pass:               c.String(redisPassFlag),
+		sentinelPort:       c.Int(redisSentinelPortFlag),
+		sentinelMasterName: c.String(redisSentinelMasterName),
+	}
 }
 
 // Close closes RedisClient
