@@ -18,6 +18,7 @@ type RedisClient struct {
 	host               string
 	port               int
 	pass               string
+	user               string
 	sentinelPort       int
 	sentinelMasterName string
 	value              redis.UniversalClient
@@ -29,6 +30,7 @@ const (
 	redisHostFlag           = "redis-host"
 	redisPortFlag           = "redis-port"
 	redisPassFlag           = "redis-pass"
+	redisUserFlag           = "redis-user"
 	redisSentinelPortFlag   = "redis-sentinel-port"
 	redisSentinelMasterName = "redis-sentinel-master-name"
 )
@@ -39,6 +41,7 @@ func NewRedisClient(c *cli.Context) *RedisClient {
 		host:               c.String(redisHostFlag),
 		port:               c.Int(redisPortFlag),
 		pass:               c.String(redisPassFlag),
+		user:               c.String(redisUserFlag),
 		sentinelPort:       c.Int(redisSentinelPortFlag),
 		sentinelMasterName: c.String(redisSentinelMasterName),
 	}
@@ -47,7 +50,7 @@ func NewRedisClient(c *cli.Context) *RedisClient {
 // Close closes RedisClient
 func (s *RedisClient) Close() {
 	if s.value != nil {
-		s.value.Close()
+		_ = s.value.Close()
 	}
 }
 
@@ -57,7 +60,7 @@ func (s *RedisClient) get() redis.UniversalClient {
 		log.Infof("using sentinel redis client with addrs=%v and master name=%v", addrs, s.sentinelMasterName)
 		return redis.NewUniversalClient(&redis.UniversalOptions{
 			Addrs:        addrs,
-			Password:     "",
+			Password:     s.pass,
 			DB:           0,
 			MasterName:   s.sentinelMasterName,
 			DialTimeout:  30 * time.Second,
@@ -70,7 +73,7 @@ func (s *RedisClient) get() redis.UniversalClient {
 	log.Infof("using default redis client with addrs=%v", addrs)
 	return redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs:        addrs,
-		Password:     "",
+		Password:     s.pass,
 		DB:           0,
 		DialTimeout:  30 * time.Second,
 		ReadTimeout:  30 * time.Second,
@@ -111,6 +114,12 @@ func RegisterRedisClientFlags(f []cli.Flag) []cli.Flag {
 			Usage:  "redis pass",
 			Value:  "",
 			EnvVar: "REDIS_PASS",
+		},
+		cli.StringFlag{
+			Name:   redisUserFlag,
+			Usage:  "redis user",
+			Value:  "default",
+			EnvVar: "REDIS_USER",
 		},
 		cli.IntFlag{
 			Name:   redisSentinelPortFlag,

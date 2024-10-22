@@ -1,6 +1,6 @@
 module github.com/webtor-io/common-services
 
-go 1.22
+go 1.23
 
 require (
 	github.com/aws/aws-sdk-go v1.53.15
