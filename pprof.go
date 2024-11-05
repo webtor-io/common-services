@@ -20,25 +20,39 @@ type Pprof struct {
 const (
 	pprofHostFlag = "pprof-host"
 	pprofPortFlag = "pprof-port"
+	pprofUseFlag  = "use-pprof"
 )
 
 func RegisterPprofFlags(f []cli.Flag) []cli.Flag {
 	return append(f,
 		cli.StringFlag{
-			Name:  pprofHostFlag,
-			Usage: "pprof listening host",
-			Value: "",
+			Name:   pprofHostFlag,
+			Usage:  "pprof listening host",
+			Value:  "",
+			EnvVar: "PPROF_HOST",
 		},
 		cli.IntFlag{
-			Name:  pprofPortFlag,
-			Usage: "pprof listening port",
-			Value: 8082,
+			Name:   pprofPortFlag,
+			Usage:  "pprof listening port",
+			Value:  8082,
+			EnvVar: "PPROF_PORT",
+		},
+		cli.BoolTFlag{
+			Name:   pprofUseFlag,
+			Usage:  "enable pprof",
+			EnvVar: "USE_PPROF",
 		},
 	)
 }
 
 func NewPprof(c *cli.Context) *Pprof {
-	return &Pprof{host: c.String(pprofHostFlag), port: c.Int(pprofPortFlag)}
+	if !c.BoolT(pprofUseFlag) {
+		return nil
+	}
+	return &Pprof{
+		host: c.String(pprofHostFlag),
+		port: c.Int(pprofPortFlag),
+	}
 }
 
 func (s *Pprof) Serve() error {
@@ -65,6 +79,6 @@ func (s *Pprof) Serve() error {
 
 func (s *Pprof) Close() {
 	if s.ln != nil {
-		s.ln.Close()
+		_ = s.ln.Close()
 	}
 }

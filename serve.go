@@ -24,7 +24,7 @@ func NewServe(s ...Servable) *Serve {
 	return &Serve{servables: s}
 }
 
-// Serve serves multible Servables
+// Serve serves multiple Servables
 func (s *Serve) Serve() error {
 
 	serveError := make(chan error, 1)

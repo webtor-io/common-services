@@ -20,27 +20,41 @@ type Probe struct {
 const (
 	probeHostFlag = "probe-host"
 	probePortFlag = "probe-port"
+	probeUseFlag  = "use-probe"
 )
 
 // RegisterProbeFlags registers cli flags for Probe
 func RegisterProbeFlags(f []cli.Flag) []cli.Flag {
 	return append(f,
 		cli.StringFlag{
-			Name:  probeHostFlag,
-			Usage: "probe listening host",
-			Value: "",
+			Name:   probeHostFlag,
+			Usage:  "probe listening host",
+			Value:  "",
+			EnvVar: "PROBE_HOST",
 		},
 		cli.IntFlag{
-			Name:  probePortFlag,
-			Usage: "probe listening port",
-			Value: 8081,
+			Name:   probePortFlag,
+			Usage:  "probe listening port",
+			Value:  8081,
+			EnvVar: "PROBE_PORT",
+		},
+		cli.BoolTFlag{
+			Name:   probeUseFlag,
+			Usage:  "enable probe",
+			EnvVar: "USE_PROBE",
 		},
 	)
 }
 
 // NewProbe initializes new Probe instance
 func NewProbe(c *cli.Context) *Probe {
-	return &Probe{host: c.String(probeHostFlag), port: c.Int(probePortFlag)}
+	if !c.BoolT(probeUseFlag) {
+		return nil
+	}
+	return &Probe{
+		host: c.String(probeHostFlag),
+		port: c.Int(probePortFlag),
+	}
 }
 
 // Serve serves Probe web service
@@ -65,6 +79,6 @@ func (s *Probe) Serve() error {
 // Close closes Probe web service
 func (s *Probe) Close() {
 	if s.ln != nil {
-		s.ln.Close()
+		_ = s.ln.Close()
 	}
 }
