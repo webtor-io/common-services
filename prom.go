@@ -13,7 +13,8 @@ import (
 
 const (
 	promHostFlag = "prom-host"
-	promHostPort = "prom-port"
+	promPortFlag = "prom-port"
+	promUseFlag  = "use-prom"
 )
 
 type Prom struct {
@@ -22,25 +23,36 @@ type Prom struct {
 	ln   net.Listener
 }
 
-func NewProm(c *cli.Context) *Prom {
-	return &Prom{
-		host: c.String(promHostFlag),
-		port: c.Int(promHostPort),
-	}
-}
-
 func RegisterPromFlags(f []cli.Flag) []cli.Flag {
 	return append(f,
 		cli.StringFlag{
-			Name:  promHostFlag,
-			Usage: "prometheus metrics listening host",
-			Value: "",
+			Name:   promHostFlag,
+			Usage:  "prometheus metrics listening host",
+			Value:  "",
+			EnvVar: "PROM_HOST",
 		},
 		cli.IntFlag{
-			Name:  promHostPort,
-			Usage: "prometheus metrics listening port",
-			Value: 8083,
-		})
+			Name:   promPortFlag,
+			Usage:  "prometheus metrics listening port",
+			Value:  8083,
+			EnvVar: "PROM_PORT",
+		},
+		cli.BoolTFlag{
+			Name:   promUseFlag,
+			Usage:  "use prometheus metrics",
+			EnvVar: "USE_PROM",
+		},
+	)
+}
+
+func NewProm(c *cli.Context) *Prom {
+	if !c.BoolT(promUseFlag) {
+		return nil
+	}
+	return &Prom{
+		host: c.String(promHostFlag),
+		port: c.Int(promPortFlag),
+	}
 }
 
 func (s *Prom) Serve() error {
