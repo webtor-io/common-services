@@ -23,7 +23,7 @@ func RegisterPGFlags(f []cli.Flag) []cli.Flag {
 		cli.StringFlag{
 			Name:   pgHostFlag,
 			Usage:  "postgres host",
-			Value:  "localhost",
+			Value:  "",
 			EnvVar: "PG_HOST",
 		},
 		cli.IntFlag{
@@ -35,7 +35,7 @@ func RegisterPGFlags(f []cli.Flag) []cli.Flag {
 		cli.StringFlag{
 			Name:   pgUserFlag,
 			Usage:  "postgres user",
-			Value:  "webhook",
+			Value:  "",
 			EnvVar: "PG_USER",
 		},
 		cli.StringFlag{
@@ -47,7 +47,7 @@ func RegisterPGFlags(f []cli.Flag) []cli.Flag {
 		cli.StringFlag{
 			Name:   pgDatabaseFlag,
 			Usage:  "postgres database",
-			Value:  "webhook",
+			Value:  "",
 			EnvVar: "PG_DATABASE",
 		},
 		cli.BoolFlag{
