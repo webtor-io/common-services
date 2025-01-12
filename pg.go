@@ -82,6 +82,9 @@ func NewPG(c *cli.Context) *PG {
 }
 
 func (s *PG) get() *pg.DB {
+	if s.host == "" {
+		return nil
+	}
 	opts := &pg.Options{}
 	opts.Addr = fmt.Sprintf("%v:%v", s.host, s.port)
 	opts.User = s.user

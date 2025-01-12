@@ -17,6 +17,10 @@ func NewPGMigration(db *PG) *PGMigration {
 
 func (s *PGMigration) Run(a ...string) error {
 	db := s.db.Get()
+	if db == nil {
+		log.Infof("DB not initialized, skipping migration")
+		return nil
+	}
 	col := migrations.NewCollection()
 	col.DiscoverSQLMigrations("migrations")
 	_, _, err := col.Run(db, "init")
