@@ -70,6 +70,9 @@ func RegisterS3ClientFlags(f []cli.Flag) []cli.Flag {
 
 // NewS3Client initializes S3Client
 func NewS3Client(c *cli.Context, cl *http.Client) *S3Client {
+	if c.String(awsAccessKeyID) == "" && c.String(awsSecretAccessKey) == "" {
+		return nil
+	}
 	return &S3Client{
 		accessKeyID:     c.String(awsAccessKeyID),
 		secretAccessKey: c.String(awsSecretAccessKey),
