@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/go-pg/pg/v10"
 	"github.com/urfave/cli"
@@ -15,7 +16,11 @@ const (
 	pgUserFlag     = "postgres-user"
 	pgPasswordFlag = "postgres-password"
 	pgDatabaseFlag = "postgres-database"
-	pgSSLFlag      = "postgres-ssl"
+	pgSSLFlag          = "postgres-ssl"
+	pgPoolSizeFlag     = "postgres-pool-size"
+	pgMinIdleConnsFlag = "postgres-min-idle-conns"
+	pgMaxConnAgeFlag   = "postgres-max-conn-age"
+	pgIdleTimeoutFlag  = "postgres-idle-timeout"
 )
 
 func RegisterPGFlags(f []cli.Flag) []cli.Flag {
@@ -55,29 +60,69 @@ func RegisterPGFlags(f []cli.Flag) []cli.Flag {
 			Usage:  "postgres ssl",
 			EnvVar: "PG_SSL",
 		},
+		cli.IntFlag{
+			Name:   pgPoolSizeFlag,
+			Usage:  "postgres pool size",
+			Value:  5,
+			EnvVar: "PG_POOL_SIZE",
+		},
+		cli.IntFlag{
+			Name:   pgMinIdleConnsFlag,
+			Usage:  "postgres min idle connections",
+			Value:  1,
+			EnvVar: "PG_MIN_IDLE_CONNS",
+		},
+		cli.StringFlag{
+			Name:   pgMaxConnAgeFlag,
+			Usage:  "postgres max connection age",
+			Value:  "30m",
+			EnvVar: "PG_MAX_CONN_AGE",
+		},
+		cli.StringFlag{
+			Name:   pgIdleTimeoutFlag,
+			Usage:  "postgres idle timeout",
+			Value:  "5m",
+			EnvVar: "PG_IDLE_TIMEOUT",
+		},
 	)
 }
 
 type PG struct {
-	host     string
-	port     int
-	user     string
-	password string
-	database string
-	ssl      bool
-	db       *pg.DB
-	mux      sync.Mutex
-	inited   bool
+	host         string
+	port         int
+	user         string
+	password     string
+	database     string
+	ssl          bool
+	poolSize     int
+	minIdleConns int
+	maxConnAge   time.Duration
+	idleTimeout  time.Duration
+	db           *pg.DB
+	mux          sync.Mutex
+	inited       bool
 }
 
 func NewPG(c *cli.Context) *PG {
+	maxConnAge, _ := time.ParseDuration(c.String(pgMaxConnAgeFlag))
+	if maxConnAge == 0 {
+		maxConnAge = 30 * time.Minute
+	}
+	idleTimeout, _ := time.ParseDuration(c.String(pgIdleTimeoutFlag))
+	if idleTimeout == 0 {
+		idleTimeout = 5 * time.Minute
+	}
 	return &PG{
-		host:     c.String(pgHostFlag),
-		port:     c.Int(pgPortFlag),
-		user:     c.String(pgUserFlag),
-		password: c.String(pgPasswordFlag),
-		database: c.String(pgDatabaseFlag),
-		ssl:      c.Bool(pgSSLFlag),
+		host:         c.String(pgHostFlag),
+		port:         c.Int(pgPortFlag),
+		user:         c.String(pgUserFlag),
+		password:     c.String(pgPasswordFlag),
+		database:     c.String(pgDatabaseFlag),
+		ssl:          c.Bool(pgSSLFlag),
+		poolSize:     c.Int(pgPoolSizeFlag),
+		minIdleConns: c.Int(pgMinIdleConnsFlag),
+		maxConnAge:   maxConnAge,
+		idleTimeout:  idleTimeout,
 	}
 }
 
@@ -90,6 +135,10 @@ func (s *PG) get() *pg.DB {
 	opts.User = s.user
 	opts.Password = s.password
 	opts.Database = s.database
+	opts.PoolSize = s.poolSize
+	opts.MinIdleConns = s.minIdleConns
+	opts.MaxConnAge = s.maxConnAge
+	opts.IdleTimeout = s.idleTimeout
 	if s.ssl {
 		opts.TLSConfig = &tls.Config{
 			InsecureSkipVerify: true,
