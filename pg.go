@@ -74,14 +74,14 @@ func RegisterPGFlags(f []cli.Flag) []cli.Flag {
 		},
 		cli.StringFlag{
 			Name:   pgMaxConnAgeFlag,
-			Usage:  "postgres max connection age",
-			Value:  "30m",
+			Usage:  "postgres max connection age (0 = no limit)",
+			Value:  "0",
 			EnvVar: "PG_MAX_CONN_AGE",
 		},
 		cli.StringFlag{
 			Name:   pgIdleTimeoutFlag,
-			Usage:  "postgres idle timeout",
-			Value:  "5m",
+			Usage:  "postgres idle timeout (0 = no limit)",
+			Value:  "0",
 			EnvVar: "PG_IDLE_TIMEOUT",
 		},
 	)
@@ -105,13 +105,7 @@ type PG struct {
 
 func NewPG(c *cli.Context) *PG {
 	maxConnAge, _ := time.ParseDuration(c.String(pgMaxConnAgeFlag))
-	if maxConnAge == 0 {
-		maxConnAge = 30 * time.Minute
-	}
 	idleTimeout, _ := time.ParseDuration(c.String(pgIdleTimeoutFlag))
-	if idleTimeout == 0 {
-		idleTimeout = 5 * time.Minute
-	}
 	return &PG{
 		host:         c.String(pgHostFlag),
 		port:         c.Int(pgPortFlag),
