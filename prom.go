@@ -49,6 +49,7 @@ func NewProm(c *cli.Context) *Prom {
 	if !c.BoolT(promUseFlag) {
 		return nil
 	}
+	registerNetnsTCPCollector("/proc/self/net")
 	return &Prom{
 		host: c.String(promHostFlag),
 		port: c.Int(promPortFlag),
