@@ -12,6 +12,7 @@ require (
 	github.com/redis/go-redis/v9 v9.16.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/urfave/cli v1.22.17
+	golang.org/x/sys v0.37.0
 )
 
 require (
@@ -39,7 +40,6 @@ require (
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	golang.org/x/crypto v0.43.0 // indirect
-	golang.org/x/sys v0.37.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 	mellium.im/sasl v0.3.2 // indirect
 )

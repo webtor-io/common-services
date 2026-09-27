@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-pg/pg/v10"
+	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -24,6 +25,8 @@ const (
 	pgMaxRetriesFlag      = "postgres-max-retries"
 	pgMinRetryBackoffFlag = "postgres-min-retry-backoff"
 	pgMaxRetryBackoffFlag = "postgres-max-retry-backoff"
+	pgTCPUserTimeoutFlag  = "postgres-tcp-user-timeout"
+	pgKeepAliveFlag       = "postgres-keepalive"
 )
 
 func RegisterPGFlags(f []cli.Flag) []cli.Flag {
@@ -105,6 +108,18 @@ func RegisterPGFlags(f []cli.Flag) []cli.Flag {
 			Value:  "1s",
 			EnvVar: "PG_MAX_RETRY_BACKOFF",
 		},
+		cli.DurationFlag{
+			Name:   pgTCPUserTimeoutFlag,
+			Usage:  "drop a postgres connection whose sent data stays unacknowledged this long (TCP_USER_TIMEOUT, Linux; 0 = kernel default, ~15m)",
+			Value:  30 * time.Second,
+			EnvVar: "PG_TCP_USER_TIMEOUT",
+		},
+		cli.DurationFlag{
+			Name:   pgKeepAliveFlag,
+			Usage:  "postgres TCP keepalive idle time and probe interval (0 = go-pg default, 5m)",
+			Value:  15 * time.Second,
+			EnvVar: "PG_KEEPALIVE",
+		},
 	)
 }
 
@@ -122,6 +137,8 @@ type PG struct {
 	maxRetries      int
 	minRetryBackoff time.Duration
 	maxRetryBackoff time.Duration
+	tcpUserTimeout  time.Duration
+	keepAlive       time.Duration
 	db              *pg.DB
 	mux             sync.Mutex
 	inited          bool
@@ -146,6 +163,8 @@ func NewPG(c *cli.Context) *PG {
 		maxRetries:      c.Int(pgMaxRetriesFlag),
 		minRetryBackoff: minRetryBackoff,
 		maxRetryBackoff: maxRetryBackoff,
+		tcpUserTimeout:  c.Duration(pgTCPUserTimeoutFlag),
+		keepAlive:       c.Duration(pgKeepAliveFlag),
 	}
 }
 
@@ -165,6 +184,11 @@ func (s *PG) get() *pg.DB {
 	opts.MaxRetries = s.maxRetries
 	opts.MinRetryBackoff = s.minRetryBackoff
 	opts.MaxRetryBackoff = s.maxRetryBackoff
+	opts.DialTimeout = pgDialTimeout
+	opts.Dialer = newPGDialer(opts.DialTimeout, s.keepAlive, s.tcpUserTimeout)
+	if s.tcpUserTimeout > 0 && !tcpUserTimeoutSupported {
+		log.Warnf("postgres: TCP_USER_TIMEOUT is Linux-only, PG_TCP_USER_TIMEOUT=%v ignored on this OS", s.tcpUserTimeout)
+	}
 	if s.ssl {
 		opts.TLSConfig = &tls.Config{
 			InsecureSkipVerify: true,
