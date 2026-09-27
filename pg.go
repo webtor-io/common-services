@@ -11,19 +11,19 @@ import (
 )
 
 const (
-	pgHostFlag     = "postgres-host"
-	pgPortFlag     = "postgres-port"
-	pgUserFlag     = "postgres-user"
-	pgPasswordFlag = "postgres-password"
-	pgDatabaseFlag = "postgres-database"
-	pgSSLFlag          = "postgres-ssl"
-	pgPoolSizeFlag     = "postgres-pool-size"
-	pgMinIdleConnsFlag = "postgres-min-idle-conns"
-	pgMaxConnAgeFlag       = "postgres-max-conn-age"
-	pgIdleTimeoutFlag      = "postgres-idle-timeout"
-	pgMaxRetriesFlag       = "postgres-max-retries"
-	pgMinRetryBackoffFlag  = "postgres-min-retry-backoff"
-	pgMaxRetryBackoffFlag  = "postgres-max-retry-backoff"
+	pgHostFlag            = "postgres-host"
+	pgPortFlag            = "postgres-port"
+	pgUserFlag            = "postgres-user"
+	pgPasswordFlag        = "postgres-password"
+	pgDatabaseFlag        = "postgres-database"
+	pgSSLFlag             = "postgres-ssl"
+	pgPoolSizeFlag        = "postgres-pool-size"
+	pgMinIdleConnsFlag    = "postgres-min-idle-conns"
+	pgMaxConnAgeFlag      = "postgres-max-conn-age"
+	pgIdleTimeoutFlag     = "postgres-idle-timeout"
+	pgMaxRetriesFlag      = "postgres-max-retries"
+	pgMinRetryBackoffFlag = "postgres-min-retry-backoff"
+	pgMaxRetryBackoffFlag = "postgres-max-retry-backoff"
 )
 
 func RegisterPGFlags(f []cli.Flag) []cli.Flag {
@@ -109,22 +109,22 @@ func RegisterPGFlags(f []cli.Flag) []cli.Flag {
 }
 
 type PG struct {
-	host         string
-	port         int
-	user         string
-	password     string
-	database     string
-	ssl          bool
-	poolSize     int
-	minIdleConns int
+	host            string
+	port            int
+	user            string
+	password        string
+	database        string
+	ssl             bool
+	poolSize        int
+	minIdleConns    int
 	maxConnAge      time.Duration
 	idleTimeout     time.Duration
 	maxRetries      int
 	minRetryBackoff time.Duration
 	maxRetryBackoff time.Duration
 	db              *pg.DB
-	mux          sync.Mutex
-	inited       bool
+	mux             sync.Mutex
+	inited          bool
 }
 
 func NewPG(c *cli.Context) *PG {
