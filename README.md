@@ -15,6 +15,12 @@ return. Closing only the listener lets the process exit mid-response, and the
 ingress answers 502. Set `terminationGracePeriodSeconds` to at least the preStop
 sleep + the timeout + 2s, plus whatever the rest of the shutdown needs.
 
+Connections cut at the timeout are closed with a TCP reset (`SO_LINGER 0`), not a
+FIN. A FIN waits behind the unsent tail of the send buffer; the pod's network is
+gone before it leaves, and the client (torrent-http-proxy, ingress) notices only
+by keepalive, 150s with Go's defaults. Connections whose request finished during
+the drain close normally.
+
 `Close` returns only after the handlers are done, cut ones included, except
 handlers of hijacked connections (WebSockets) and handlers still running 2s after
 the cut (logged as a warning). It must run before the dependencies the handlers

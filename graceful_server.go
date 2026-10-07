@@ -135,7 +135,8 @@ func (s *GracefulServer) trackConn(c net.Conn, st http.ConnState) {
 
 // Close stops accepting, closes idle keep-alive connections and waits for
 // in-flight requests up to the timeout, then cuts whatever is still open
-// (long-lived streams) and waits up to 2s for the cut handlers to return.
+// (long-lived streams) with a TCP reset and waits up to 2s for the cut
+// handlers to return.
 // Hijacked connections (WebSockets) are neither waited for nor cut, as with
 // http.Server.Shutdown. It is safe to call more than once and before Serve;
 // every call returns only after the drain is over.
@@ -156,10 +157,35 @@ func (s *GracefulServer) close() {
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		log.WithError(err).Warn("web shutdown timed out, closing remaining connections")
+		s.resetActive()
 		_ = srv.Close()
 		s.waitUnwind()
 	}
 	log.Info("web closed")
+}
+
+// resetActive closes the connections still serving a request at the timeout
+// with a reset (SO_LINGER 0) instead of a FIN. A FIN is queued behind the
+// unsent part of the send buffer, which for a stream to a slow reader is up
+// to the whole buffer; the process exits and the pod's network is removed
+// before it goes out, and the client learns of the cut only from its
+// keepalive (150s with Go's defaults). A reset goes out at once and drops the
+// unsent data; the stream is cut either way.
+//
+// Connections that finished their request during the drain have left
+// s.active and close with a FIN as before. The one exception is a response
+// that completes in the instant of the timeout, after its last write but
+// before its ConnState hook: it is reset and may lose its tail. Connections
+// that are not *net.TCPConn are left to srv.Close and its normal close.
+func (s *GracefulServer) resetActive() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for c := range s.active {
+		if tc, ok := c.(*net.TCPConn); ok {
+			_ = tc.SetLinger(0)
+			_ = tc.Close()
+		}
+	}
 }
 
 // waitUnwind waits for the handlers of the connections srv.Close cut. Closing

@@ -1,6 +1,8 @@
 package services
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -8,6 +10,7 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -39,12 +42,20 @@ type getResult struct {
 	err  error
 }
 
+// getDialer probes an idle connection after 1s. macOS sometimes ignores the
+// reset that ends a cut stream (7 of 700 runs; Linux 0 of 800) and keeps the
+// connection open until a keepalive probe draws a second reset: after 15s
+// with Go's defaults, after ~1s with this dialer.
+var getDialer = &net.Dialer{KeepAliveConfig: net.KeepAliveConfig{
+	Enable: true, Idle: time.Second, Interval: time.Second, Count: 1,
+}}
+
 // get issues a GET on its own connection and reports the body once the
 // response ends, whether completely or cut.
 func get(url string) <-chan getResult {
 	res := make(chan getResult, 1)
 	go func() {
-		cl := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
+		cl := &http.Client{Transport: &http.Transport{DisableKeepAlives: true, DialContext: getDialer.DialContext}}
 		resp, err := cl.Get(url)
 		if err != nil {
 			res <- getResult{err: err}
@@ -312,6 +323,11 @@ func TestGracefulServerDoesNotWaitForHijacked(t *testing.T) {
 	closeWithin(t, g, 2*time.Second)
 	recvResult(t, res)
 	waitServed(t, served)
+	// Nor is it reset with the cut streams: it is still open.
+	_ = ws.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+	if _, err := ws.Read(make([]byte, 1)); !errors.Is(err, os.ErrDeadlineExceeded) {
+		t.Fatalf("hijacked connection after Close: %v, want it still open", err)
+	}
 }
 
 // Serve takes over srv.ConnState for its accounting; a hook the caller set
@@ -538,4 +554,156 @@ func runShutdownTimeout(t *testing.T, flags []cli.Flag, args ...string) time.Dur
 		t.Fatal(err)
 	}
 	return got
+}
+
+// serverWithSendBuffer is an http.Server whose connections get a fixed 1 MiB
+// send buffer, so a client that does not read leaves a known, large tail of
+// the response in the server's kernel.
+func serverWithSendBuffer(h http.Handler) *http.Server {
+	return &http.Server{
+		Handler: h,
+		ConnState: func(c net.Conn, st http.ConnState) {
+			if st == http.StateNew {
+				_ = c.(*net.TCPConn).SetWriteBuffer(1 << 20)
+			}
+		},
+	}
+}
+
+// dialNotReading sends a GET on a raw connection with a small receive buffer
+// and leaves the response unread until the caller reads it.
+func dialNotReading(t *testing.T, addr, path string) net.Conn {
+	t.Helper()
+	c, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+	if err := c.(*net.TCPConn).SetReadBuffer(16 << 10); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fmt.Fprintf(c, "GET %s HTTP/1.1\r\nHost: test\r\n\r\n", path); err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+// waitStalled waits until n stops growing: the handler's writes block on full
+// socket buffers.
+func waitStalled(t *testing.T, n *atomic.Int64) int64 {
+	t.Helper()
+	last := int64(-1)
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+		time.Sleep(50 * time.Millisecond)
+		cur := n.Load()
+		if cur > 0 && cur == last {
+			return cur
+		}
+		last = cur
+	}
+	t.Fatal("the handler's writes never blocked")
+	return 0
+}
+
+// A stream cut at the timeout must reach the client as a reset at once. A
+// graceful close queues the FIN behind the unsent tail of the send buffer;
+// in a pod the process exits and the network is gone before that goes out,
+// and the client (thp, ingress) waits for its keepalive to notice: 150s with
+// Go's defaults, measured in thp on 2026-10-07. Here the network stays up, so
+// a FIN would deliver the whole tail and a clean EOF instead.
+func TestGracefulServerResetsCutStreams(t *testing.T) {
+	var written atomic.Int64
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		buf := make([]byte, 32<<10)
+		for {
+			if _, err := w.Write(buf); err != nil {
+				return
+			}
+			written.Add(int64(len(buf)))
+		}
+	})
+	g := NewGracefulServer(100 * time.Millisecond)
+	addr, served := startGracefulServer(t, g, serverWithSendBuffer(h))
+
+	c := dialNotReading(t, addr, "/stream")
+	sent := waitStalled(t, &written)
+	if sent < 512<<10 {
+		t.Fatalf("only %d bytes backed up before the cut, the send buffer did not fill", sent)
+	}
+	closeWithin(t, g, 3*time.Second)
+
+	cut := time.Now()
+	_ = c.SetReadDeadline(cut.Add(time.Second))
+	got, err := io.Copy(io.Discard, c)
+	if !errors.Is(err, syscall.ECONNRESET) {
+		t.Fatalf("client read %d bytes and then %v within 1s of Close, want a connection reset", got, err)
+	}
+	if took := time.Since(cut); took > time.Second {
+		t.Fatalf("reset reached the client %v after Close", took)
+	}
+	// The client may still read what already reached its own receive buffer;
+	// what sat in the server's 1 MiB send buffer must be gone.
+	if dropped := sent - got; dropped < 256<<10 {
+		t.Fatalf("client read %d of the %d bytes written before the cut, the send buffer's tail was delivered", got, sent)
+	}
+	t.Logf("written before the cut %d, read by the client after it %d, reset after %v", sent, got, time.Since(cut))
+	waitServed(t, served)
+}
+
+// Only connections still serving a request at the timeout are reset. One that
+// finished its response during the drain closes as before, and its client
+// still gets the whole body, even the part that sat unsent in the server's
+// send buffer when a stream on another connection was reset.
+func TestGracefulServerDeliversRequestsFinishedInDrain(t *testing.T) {
+	const size = 256 << 10
+	release := make(chan struct{})
+	finished := make(chan struct{})
+	started := make(chan struct{}, 2)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/big", func(w http.ResponseWriter, r *http.Request) {
+		started <- struct{}{}
+		<-release
+		w.Header().Set("Content-Length", fmt.Sprint(size))
+		_, _ = w.Write(make([]byte, size))
+		close(finished)
+	})
+	mux.HandleFunc("/stream", func(w http.ResponseWriter, r *http.Request) {
+		started <- struct{}{}
+		streamUntilCut(w, r)
+	})
+	const timeout = 500 * time.Millisecond
+	g := NewGracefulServer(timeout)
+	addr, served := startGracefulServer(t, g, serverWithSendBuffer(mux))
+
+	big := dialNotReading(t, addr, "/big")
+	stream := get("http://" + addr + "/stream")
+	<-started
+	<-started
+
+	closed := make(chan time.Duration, 1)
+	go func() { closed <- closeWithin(t, g, 3*time.Second) }()
+	time.Sleep(50 * time.Millisecond)
+	close(release)
+	select {
+	case <-finished:
+	case <-time.After(timeout / 2):
+		t.Fatal("the /big handler did not finish well before the drain timeout")
+	}
+	if took := <-closed; took < timeout {
+		t.Fatalf("Close took %v, the stream was not cut at the %v timeout", took, timeout)
+	}
+	if got := recvResult(t, stream); got.err == nil {
+		t.Fatal("stream ended cleanly, want it cut")
+	}
+
+	_ = big.SetReadDeadline(time.Now().Add(2 * time.Second))
+	resp, err := http.ReadResponse(bufio.NewReader(big), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := io.Copy(io.Discard, resp.Body)
+	if err != nil || n != size {
+		t.Fatalf("finished response arrived as %d of %d bytes, err=%v", n, size, err)
+	}
+	waitServed(t, served)
 }
