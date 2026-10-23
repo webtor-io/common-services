@@ -627,7 +627,10 @@ func TestGracefulServerResetsCutStreams(t *testing.T) {
 
 	c := dialNotReading(t, addr, "/stream")
 	sent := waitStalled(t, &written)
-	if sent < 512<<10 {
+	// Linux grants at most 2*net.core.wmem_max of the 1 MiB asked for: 416 KiB
+	// with the default 212992, and sent is then 448 KiB. Enough to leave more
+	// than the 256 KiB the drop check below needs.
+	if sent < 384<<10 {
 		t.Fatalf("only %d bytes backed up before the cut, the send buffer did not fill", sent)
 	}
 	closeWithin(t, g, 3*time.Second)
@@ -642,7 +645,7 @@ func TestGracefulServerResetsCutStreams(t *testing.T) {
 		t.Fatalf("reset reached the client %v after Close", took)
 	}
 	// The client may still read what already reached its own receive buffer;
-	// what sat in the server's 1 MiB send buffer must be gone.
+	// what sat in the server's send buffer must be gone.
 	if dropped := sent - got; dropped < 256<<10 {
 		t.Fatalf("client read %d of the %d bytes written before the cut, the send buffer's tail was delivered", got, sent)
 	}
